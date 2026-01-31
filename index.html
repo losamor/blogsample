@@ -5,117 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Blog</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        .container {
-            width: 80%;
-            margin: auto;
-            overflow: hidden;
-        }
-        header {
-            background: #333;
-            color: #fff;
-            padding: 1rem 0;
-            text-align: center;
-        }
-        header a {
-            color: #fff;
-            text-decoration: none;
-        }
-        article {
-            background: #fff;
-            margin: 1rem 0;
-            padding: 1rem;
-            border: 1px solid #ddd;
-        }
-        article img {
-            max-width: 100%;
-            height: auto;
-            margin-bottom: 1rem;
-        }
-        h2 {
-            color: #333;
-        }
-        h2 a {
-            color: #333;
-            text-decoration: none;
-        }
-        h2 a:hover {
-            color: #666;
-        }
-        .post-meta {
-            color: #666;
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .view-count {
-            color: #888;
-        }
-        .read-more {
-            display: inline-block;
-            margin-top: 0.5rem;
-            color: #333;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .read-more:hover {
-            color: #666;
-        }
-        footer {
-            text-align: center;
-            padding: 1rem 0;
-            background: #333;
-            color: #fff;
-        }
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 1rem;
-            color: #333;
-            text-decoration: none;
-        }
-        .like-section {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-        }
-        .like-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: #fff;
-            border: 2px solid #ddd;
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-        .like-button:hover {
-            border-color: #ff6b6b;
-            background: #fff5f5;
-        }
-        .like-button.liked {
-            background: #ff6b6b;
-            border-color: #ff6b6b;
-            color: white;
-        }
-        .like-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { width: 80%; margin: auto; overflow: hidden; }
+        header { background: #333; color: #fff; padding: 1rem 0; text-align: center; }
+        header a { color: #fff; text-decoration: none; }
+        article { background: #fff; margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; }
+        article img { max-width: 100%; height: auto; margin-bottom: 1rem; }
+        h2 { color: #333; }
+        h2 a { color: #333; text-decoration: none; }
+        .post-meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 15px; }
+        .view-count { color: #888; }
+        .read-more { display: inline-block; margin-top: 0.5rem; color: #333; text-decoration: none; font-weight: bold; }
+        footer { text-align: center; padding: 1rem 0; background: #333; color: #fff; margin-top: 2rem; }
+        .loading { text-align: center; padding: 2rem; color: #666; }
+        .back-link { display: inline-block; margin-bottom: 1rem; color: #333; text-decoration: none; }
+        .like-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee; }
+        .like-button { display: inline-flex; align-items: center; gap: 0.5rem; background: #fff; border: 2px solid #ddd; padding: 0.5rem 1rem; border-radius: 25px; cursor: pointer; font-size: 1rem; transition: all 0.3s ease; }
+        .like-button:hover { border-color: #ff6b6b; background: #fff5f5; }
+        .like-button.liked { background: #ff6b6b; border-color: #ff6b6b; color: white; }
+        .like-button:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
@@ -152,18 +60,7 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // --- DATABASE FUNCTIONS ---
-        window.incrementViewCount = async (slug) => {
-            const viewRef = ref(database, 'views/' + slug);
-            await runTransaction(viewRef, (curr) => (curr || 0) + 1);
-        };
-
-        window.getStats = async (slug) => {
-            const vSnap = await get(ref(database, 'views/' + slug));
-            const lSnap = await get(ref(database, 'likes/' + slug));
-            return { views: vSnap.val() || 0, likes: lSnap.val() || 0 };
-        };
-
+        // --- GLOBAL FUNCTIONS ---
         window.handleLikeClick = async (slug, btn) => {
             btn.disabled = true;
             const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '{}');
@@ -179,7 +76,6 @@
                 likedPosts[slug] = !hasLiked;
                 localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
                 
-                // Update UI
                 const countSpan = btn.querySelector('.like-count');
                 const iconSpan = btn.querySelector('.like-icon');
                 const currentCount = parseInt(countSpan.textContent);
@@ -194,10 +90,10 @@
             }
         };
 
-        // --- CONTENT PARSING ---
+        // --- HELPERS ---
         function parseFrontMatter(content) {
             const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
-            if (!match) return null;
+            if (!match) return { data: {}, content: content };
             const data = {};
             match[1].split('\n').forEach(line => {
                 const parts = line.split(':');
@@ -211,72 +107,106 @@
                      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
                      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                     .split('\n\n').map(p => p ? `<p>${p}</p>` : '').join('');
+                     .split('\n\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
         }
 
-        // --- RENDERING ---
-        async function displaySinglePost(slug) {
-            const res = await fetch(`https://api.github.com/repos/losamor/blogsample/contents/posts`);
-            const files = await res.json();
-            const file = files.find(f => f.name.replace('.md', '') === slug);
-            
-            const cRes = await fetch(file.download_url);
-            const parsed = parseFrontMatter(await cRes.text());
-            
-            await window.incrementViewCount(slug);
-            const stats = await window.getStats(slug);
-            const userLiked = JSON.parse(localStorage.getItem('likedPosts') || '{}')[slug];
-
-            document.getElementById('blog-posts').innerHTML = `
-                <a href="/" class="back-link">← Back</a>
-                <article>
-                    ${parsed.data.image ? `<img src="${parsed.data.image}">` : ''}
-                    <h2>${parsed.data.title}</h2>
-                    <div class="post-meta">
-                        <small>${parsed.data.date}</small>
-                        <span class="view-count">👁 ${stats.views}</span>
-                    </div>
-                    ${markdownToHtml(parsed.content)}
-                    <div class="like-section">
-                        <button class="like-button ${userLiked ? 'liked' : ''}" onclick="handleLikeClick('${slug}', this)">
-                            <span class="like-icon">${userLiked ? '❤️' : '🤍'}</span>
-                            <span class="like-count">${stats.likes}</span>
-                        </button>
-                    </div>
-                </article>`;
-        }
-
-        async function loadBlogPosts() {
-            const res = await fetch('https://api.github.com/repos/losamor/blogsample/contents/posts');
-            const files = await res.json();
-            const container = document.getElementById('blog-posts');
-            container.innerHTML = '';
-
-            for (const file of files.filter(f => f.name.endsWith('.md'))) {
-                const slug = file.name.replace('.md', '');
-                const cRes = await fetch(file.download_url);
-                const parsed = parseFrontMatter(await cRes.text());
-                const stats = await window.getStats(slug);
-
-                container.innerHTML += `
-                    <article>
-                        <h2><a href="?post=${slug}">${parsed.data.title}</a></h2>
-                        <div class="post-meta">
-                            <small>${parsed.data.date}</small>
-                            <span>👁 ${stats.views}</span>
-                            <span>❤️ ${stats.likes}</span>
-                        </div>
-                        <a href="?post=${slug}" class="read-more">Read more →</a>
-                    </article>`;
+        async function getStats(slug) {
+            try {
+                const vSnap = await get(ref(database, 'views/' + slug));
+                const lSnap = await get(ref(database, 'likes/' + slug));
+                return { views: vSnap.val() || 0, likes: lSnap.val() || 0 };
+            } catch (e) {
+                return { views: 0, likes: 0 };
             }
         }
 
-        // --- INIT ---
+        // --- MAIN LOGIC ---
+        async function displaySinglePost(slug) {
+            const container = document.getElementById('blog-posts');
+            try {
+                const res = await fetch(`https://api.github.com/repos/losamor/blogsample/contents/posts`);
+                const files = await res.json();
+                const file = files.find(f => f.name.replace('.md', '') === slug);
+                
+                if (!file) {
+                    container.innerHTML = '<p>Post not found. <a href="/">Go back</a></p>';
+                    return;
+                }
+
+                const cRes = await fetch(file.download_url);
+                const text = await cRes.text();
+                const parsed = parseFrontMatter(text);
+                
+                // Increment views
+                await runTransaction(ref(database, 'views/' + slug), (curr) => (curr || 0) + 1);
+                const stats = await getStats(slug);
+                const userLiked = JSON.parse(localStorage.getItem('likedPosts') || '{}')[slug];
+
+                container.innerHTML = `
+                    <a href="/" class="back-link">← Back</a>
+                    <article>
+                        ${parsed.data.image ? `<img src="${parsed.data.image}">` : ''}
+                        <h2>${parsed.data.title || 'Untitled'}</h2>
+                        <div class="post-meta">
+                            <small>${parsed.data.date || ''}</small>
+                            <span class="view-count">👁 ${stats.views}</span>
+                        </div>
+                        ${markdownToHtml(parsed.content)}
+                        <div class="like-section">
+                            <button class="like-button ${userLiked ? 'liked' : ''}" onclick="handleLikeClick('${slug}', this)">
+                                <span class="like-icon">${userLiked ? '❤️' : '🤍'}</span>
+                                <span class="like-count">${stats.likes}</span>
+                            </button>
+                        </div>
+                    </article>`;
+            } catch (err) {
+                container.innerHTML = `<p>Error loading post: ${err.message}</p>`;
+            }
+        }
+
+        async function loadBlogPosts() {
+            const container = document.getElementById('blog-posts');
+            try {
+                const res = await fetch('https://api.github.com/repos/losamor/blogsample/contents/posts');
+                const files = await res.json();
+                
+                if (!Array.isArray(files)) throw new Error("Could not fetch posts list");
+
+                container.innerHTML = '';
+                const mdFiles = files.filter(f => f.name.endsWith('.md'));
+
+                for (const file of mdFiles) {
+                    const slug = file.name.replace('.md', '');
+                    const cRes = await fetch(file.download_url);
+                    const parsed = parseFrontMatter(await cRes.text());
+                    const stats = await getStats(slug);
+
+                    container.innerHTML += `
+                        <article>
+                            <h2><a href="?post=${slug}">${parsed.data.title || slug}</a></h2>
+                            <div class="post-meta">
+                                <small>${parsed.data.date || ''}</small>
+                                <span>👁 ${stats.views}</span>
+                                <span>❤️ ${stats.likes}</span>
+                            </div>
+                            <a href="?post=${slug}" class="read-more">Read more →</a>
+                        </article>`;
+                }
+            } catch (err) {
+                container.innerHTML = `<p>Error loading index: ${err.message}</p>`;
+            }
+        }
+
+        // Initialize on load
         const urlParams = new URLSearchParams(window.location.search);
         const postSlug = urlParams.get('post');
-        if (postSlug) displaySinglePost(postSlug);
-        else loadBlogPosts();
+        if (postSlug) {
+            displaySinglePost(postSlug);
+        } else {
+            loadBlogPosts();
+        }
 
+        // Netlify Identity
         if (window.netlifyIdentity) {
             window.netlifyIdentity.on("init", user => {
                 if (!user) window.netlifyIdentity.on("login", () => document.location.href = "/admin/");
