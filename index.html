@@ -13,12 +13,15 @@
         article img { max-width: 100%; height: auto; margin-bottom: 1rem; }
         h2 { color: #333; }
         h2 a { color: #333; text-decoration: none; }
+        h2 a:hover { color: #666; }
         .post-meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 15px; }
         .view-count { color: #888; }
         .read-more { display: inline-block; margin-top: 0.5rem; color: #333; text-decoration: none; font-weight: bold; }
+        .read-more:hover { color: #666; }
         footer { text-align: center; padding: 1rem 0; background: #333; color: #fff; margin-top: 2rem; }
         .loading { text-align: center; padding: 2rem; color: #666; }
         .back-link { display: inline-block; margin-bottom: 1rem; color: #333; text-decoration: none; }
+        .back-link:hover { color: #666; }
         .like-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee; }
         .like-button { display: inline-flex; align-items: center; gap: 0.5rem; background: #fff; border: 2px solid #ddd; padding: 0.5rem 1rem; border-radius: 25px; cursor: pointer; font-size: 1rem; transition: all 0.3s ease; }
         .like-button:hover { border-color: #ff6b6b; background: #fff5f5; }
@@ -97,7 +100,7 @@
             const data = {};
             match[1].split('\n').forEach(line => {
                 const parts = line.split(':');
-                if (parts.length > 1) data[parts[0].trim()] = parts[1].trim().replace(/^["']|["']$/g, '');
+                if (parts.length > 1) data[parts[0].trim()] = parts.slice(1).join(':').trim().replace(/^["']|["']$/g, '');
             });
             return { data, content: match[2].trim() };
         }
@@ -107,7 +110,22 @@
                      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
                      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                     .split('\n\n').map(p => p.trim() ? `<p>${p}</p>` : '').join('');
+                     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                     .split('\n\n').map(p => p.trim() ? `<p>${p.replace(/\n/g, '<br>')}</p>` : '').join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            } catch (e) {
+                return dateStr;
+            }
         }
 
         async function getStats(slug) {
@@ -143,13 +161,13 @@
                 const userLiked = JSON.parse(localStorage.getItem('likedPosts') || '{}')[slug];
 
                 container.innerHTML = `
-                    <a href="/" class="back-link">← Back</a>
+                    <a href="/" class="back-link">← Back to all posts</a>
                     <article>
-                        ${parsed.data.image ? `<img src="${parsed.data.image}">` : ''}
+                        ${parsed.data.image ? `<img src="${parsed.data.image}" alt="${parsed.data.title || 'Post image'}">` : ''}
                         <h2>${parsed.data.title || 'Untitled'}</h2>
                         <div class="post-meta">
-                            <small>${parsed.data.date || ''}</small>
-                            <span class="view-count">👁 ${stats.views}</span>
+                            <small>Published on: ${formatDate(parsed.data.date)}</small>
+                            <span class="view-count">👁 ${stats.views} views</span>
                         </div>
                         ${markdownToHtml(parsed.content)}
                         <div class="like-section">
@@ -160,6 +178,7 @@
                         </div>
                     </article>`;
             } catch (err) {
+                console.error('Error loading post:', err);
                 container.innerHTML = `<p>Error loading post: ${err.message}</p>`;
             }
         }
@@ -172,28 +191,54 @@
                 
                 if (!Array.isArray(files)) throw new Error("Could not fetch posts list");
 
-                container.innerHTML = '';
                 const mdFiles = files.filter(f => f.name.endsWith('.md'));
+                
+                if (mdFiles.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; padding: 2rem;">No posts yet. Create your first post in the <a href="/admin/">admin panel</a>!</p>';
+                    return;
+                }
 
-                for (const file of mdFiles) {
+                // Load all posts in parallel (faster)
+                const posts = await Promise.all(mdFiles.map(async (file) => {
                     const slug = file.name.replace('.md', '');
                     const cRes = await fetch(file.download_url);
                     const parsed = parseFrontMatter(await cRes.text());
                     const stats = await getStats(slug);
 
+                    return {
+                        slug,
+                        title: parsed.data.title || slug,
+                        date: parsed.data.date || '',
+                        image: parsed.data.image || null,
+                        content: parsed.content,
+                        stats
+                    };
+                }));
+
+                // Sort by date (newest first)
+                posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                // Render posts
+                container.innerHTML = '';
+                posts.forEach(post => {
+                    const preview = post.content.substring(0, 200) + (post.content.length > 200 ? '...' : '');
+                    
                     container.innerHTML += `
                         <article>
-                            <h2><a href="?post=${slug}">${parsed.data.title || slug}</a></h2>
+                            ${post.image ? `<img src="${post.image}" alt="${post.title}">` : ''}
+                            <h2><a href="?post=${post.slug}">${post.title}</a></h2>
                             <div class="post-meta">
-                                <small>${parsed.data.date || ''}</small>
-                                <span>👁 ${stats.views}</span>
-                                <span>❤️ ${stats.likes}</span>
+                                <small>Published on: ${formatDate(post.date)}</small>
+                                <span>👁 ${post.stats.views} views</span>
+                                <span>❤️ ${post.stats.likes} likes</span>
                             </div>
-                            <a href="?post=${slug}" class="read-more">Read more →</a>
+                            <p>${preview}</p>
+                            <a href="?post=${post.slug}" class="read-more">Read more →</a>
                         </article>`;
-                }
+                });
             } catch (err) {
-                container.innerHTML = `<p>Error loading index: ${err.message}</p>`;
+                console.error('Error loading posts:', err);
+                container.innerHTML = `<p>Error loading posts: ${err.message}</p>`;
             }
         }
 
