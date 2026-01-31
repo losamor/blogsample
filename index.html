@@ -88,6 +88,38 @@
         .back-link:hover {
             color: #666;
         }
+        .like-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        .like-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #fff;
+            border: 2px solid #ddd;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        .like-button:hover {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        .like-button.liked {
+            background: #ff6b6b;
+            border-color: #ff6b6b;
+            color: white;
+        }
+        .like-button:active {
+            transform: scale(0.95);
+        }
+        .like-icon {
+            font-size: 1.2rem;
+        }
     </style>
     <!-- Netlify Identity Widget for authentication -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -163,6 +195,54 @@
             }
         };
 
+        // LIKE FUNCTIONS
+        window.getLikeCount = async function(postSlug) {
+            if (!firebaseInitialized) return 0;
+            
+            const likeRef = ref(database, 'likes/' + postSlug);
+            try {
+                const snapshot = await get(likeRef);
+                return snapshot.val() || 0;
+            } catch (error) {
+                console.error('Error getting like count:', error);
+                return 0;
+            }
+        };
+
+        window.toggleLike = async function(postSlug) {
+            if (!firebaseInitialized) return { liked: false, count: 0 };
+            
+            const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '{}');
+            const hasLiked = likedPosts[postSlug] || false;
+            
+            const likeRef = ref(database, 'likes/' + postSlug);
+            
+            try {
+                let newCount = 0;
+                await runTransaction(likeRef, (currentValue) => {
+                    if (hasLiked) {
+                        newCount = Math.max((currentValue || 0) - 1, 0);
+                    } else {
+                        newCount = (currentValue || 0) + 1;
+                    }
+                    return newCount;
+                });
+                
+                likedPosts[postSlug] = !hasLiked;
+                localStorage.setItem('likedPosts', JSON.stringify(likedPosts));
+                
+                return { liked: !hasLiked, count: newCount };
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                return { liked: hasLiked, count: await window.getLikeCount(postSlug) };
+            }
+        };
+
+        window.hasUserLiked = function(postSlug) {
+            const likedPosts = JSON.parse(localStorage.getItem('likedPosts') || '{}');
+            return likedPosts[postSlug] || false;
+        };
+
         window.firebaseReady = firebaseInitialized;
     </script>
 
@@ -218,6 +298,28 @@
             return params.get('post');
         }
 
+        // Handle like button click
+        async function handleLikeClick(postSlug, buttonElement) {
+            if (!window.toggleLike) return;
+            
+            buttonElement.disabled = true;
+            const result = await window.toggleLike(postSlug);
+            
+            const icon = buttonElement.querySelector('.like-icon');
+            const countSpan = buttonElement.querySelector('.like-count');
+            
+            if (result.liked) {
+                buttonElement.classList.add('liked');
+                icon.textContent = '❤️';
+            } else {
+                buttonElement.classList.remove('liked');
+                icon.textContent = '🤍';
+            }
+            
+            countSpan.textContent = result.count;
+            buttonElement.disabled = false;
+        }
+
         // Display single post
         async function displaySinglePost(slug) {
             try {
@@ -250,6 +352,8 @@
                 }
                 
                 const viewCount = window.getViewCount ? await window.getViewCount(slug) : 0;
+                const likeCount = window.getLikeCount ? await window.getLikeCount(slug) : 0;
+                const userLiked = window.hasUserLiked ? window.hasUserLiked(slug) : false;
                 
                 const post = {
                     title: parsed.data.title || 'Untitled',
@@ -270,6 +374,9 @@
                     imageHtml = `<img src="${post.image}" alt="${post.title}">`;
                 }
                 
+                const likeIcon = userLiked ? '❤️' : '🤍';
+                const likedClass = userLiked ? 'liked' : '';
+                
                 const container = document.getElementById('blog-posts');
                 container.innerHTML = `
                     <a href="/" class="back-link">← Back to all posts</a>
@@ -281,8 +388,16 @@
                             <span class="view-count">👁 ${viewCount} views</span>
                         </div>
                         ${markdownToHtml(post.body)}
+                        <div class="like-section">
+                            <button class="like-button ${likedClass}" onclick="handleLikeClick('${slug}', this)">
+                                <span class="like-icon">${likeIcon}</span>
+                                <span class="like-count">${likeCount}</span>
+                            </button>
+                        </div>
                     </article>
                 `;
+                
+                window.handleLikeClick = handleLikeClick;
                 
             } catch (error) {
                 console.error('Error loading post:', error);
@@ -327,6 +442,7 @@
                             if (parsed) {
                                 const slug = getSlugFromFilename(file.name);
                                 const viewCount = window.getViewCount ? await window.getViewCount(slug) : 0;
+                                const likeCount = window.getLikeCount ? await window.getLikeCount(slug) : 0;
                                 
                                 return {
                                     slug: slug,
@@ -334,7 +450,8 @@
                                     date: parsed.data.date || new Date().toISOString(),
                                     image: parsed.data.image || null,
                                     body: parsed.content,
-                                    views: viewCount
+                                    views: viewCount,
+                                    likes: likeCount
                                 };
                             }
                             return null;
@@ -376,6 +493,7 @@
                         <div class="post-meta">
                             <small>Published on: ${formattedDate}</small>
                             <span class="view-count">👁 ${post.views} views</span>
+                            <span class="view-count">❤️ ${post.likes} likes</span>
                         </div>
                         ${markdownToHtml(preview)}
                         <a href="?post=${post.slug}" class="read-more">Read more →</a>
