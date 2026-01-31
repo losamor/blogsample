@@ -2,6 +2,8 @@
 title: The Death of Zarathusa
 date: 2026-01-30T16:08:14.099Z
 image: /images/uploads/l-adoration_des_bergers_-la_tour-.jpg
+tags:
+  - Orange
 ---
 <!--StartFragment-->
 
